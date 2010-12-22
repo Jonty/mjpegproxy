@@ -32,6 +32,7 @@ class MJPEGProxy:
         server = eventlet.listen(self.listen_address)
         while True:
             connection, address = server.accept()
+            connection.settimeout(5)
             self.add_client(connection, address)
 
     def proxy(self):
@@ -48,7 +49,11 @@ class MJPEGProxy:
 
             self.sem.release()
 
-            data = self.connection.recv(1024)
+            data = ''
+            try:
+                data = self.connection.recv(1024)
+            except:
+                self.log.info("Timed out reading data from source.")
 
             if (len(data) == 0):
                 self.log.info("No data recieved from source, forcing reconnect.");
@@ -90,6 +95,8 @@ class MJPEGProxy:
         try:
             self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.connection.connect(self.connect_address)
+            self.connection.settimeout(5)
+
             data = self.connection.recv(1024)
             header, data = data.split("\r\n\r\n")[0:2]
             self.header = header
