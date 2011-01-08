@@ -32,7 +32,6 @@ class MJPEGProxy:
         server = eventlet.listen(self.listen_address)
         while True:
             connection, address = server.accept()
-            connection.settimeout(5)
             self.add_client(connection, address)
 
     def proxy(self):
@@ -65,9 +64,11 @@ class MJPEGProxy:
                     client.send(data)
                 except socket.error, err:
                     self.clients.remove(client)
+                    client.close()
                     self.log.info("Client %s disconnected: %s [clients: %s]", client, err, len(self.clients))
 
     def add_client(self, client, address):
+        client.settimeout(5)
         self.sem.acquire()
         try:
             data = ''
@@ -84,9 +85,11 @@ class MJPEGProxy:
 
     def disconnect(self):
         self.log.info("Disconnecting from source")
-        self.connection.close()
-        self.connection = None
         self.header = None
+
+        if self.connection:
+            self.connection.close()
+            self.connection = None
 
     def connect(self):
         self.log.info("Connecting to source %s", self.connect_address)
@@ -104,6 +107,7 @@ class MJPEGProxy:
 
         except:
             self.log.info("Failed connecting to source %s", self.connect_address)
+            self.disconnect()
 
             for client in self.clients:
                 self.log.info("Client %s disconnected due to source failure", client)
